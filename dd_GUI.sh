@@ -28,6 +28,7 @@ class DDUtilityApp:
         self.selected_source_disk = None
         self.selected_destination_disk = None
         self.process = None
+        self.total_size = None  # To store the total size for progress calculation
 
         self.initialize_ui()
 
@@ -175,14 +176,13 @@ class DDUtilityApp:
                 match = re.search(r'(\d+) bytes', line)
                 if match:
                     bytes_transferred = int(match.group(1))
-                    # Placeholder total size; adjust this to actual size if available
-                    total_size = 100 * 1024**3  # 100GB in bytes for demonstration
-                    progress_percentage = min(max(bytes_transferred / total_size * 100, 0.00), 100.00)
-                    # Convert bytes to MB
-                    bytes_transferred_mb = bytes_transferred / 1024**2
-                    # Update labels
-                    self.root.after(0, self.progress_bar.config, {'value': progress_percentage})
-                    self.root.after(0, self.progress_label_amount.config, {'text': f"{bytes_transferred_mb:.2f} MB Copied - {progress_percentage:.2f}% Done"})
+                    if self.total_size:
+                        progress_percentage = min(max(bytes_transferred / self.total_size * 100, 0.00), 100.00)
+                        # Convert bytes to MB
+                        bytes_transferred_mb = bytes_transferred / 1024**2
+                        # Update labels
+                        self.root.after(0, self.progress_bar.config, {'value': progress_percentage})
+                        self.root.after(0, self.progress_label_amount.config, {'text': f"{bytes_transferred_mb:.2f} MB Copied - {progress_percentage:.2f}% Done"})
             except ValueError:
                 pass
 
@@ -190,9 +190,16 @@ class DDUtilityApp:
         if self.selected_file and self.selected_destination_disk:
             src = self.selected_file
             dest = self.selected_destination_disk
+            # Determine total size of the file
+            self.total_size = os.path.getsize(src)
         elif self.selected_source_disk and self.selected_destination_disk:
             src = self.selected_source_disk
             dest = self.selected_destination_disk
+            # Estimate total size by checking the size of the source disk
+            try:
+                self.total_size = int(subprocess.check_output(f"blockdev --getsize64 {src}", shell=True).strip())
+            except subprocess.CalledProcessError:
+                self.total_size = None
         else:
             messagebox.showerror("Error", "Source or Destination disk not selected.")
             self.initialize_ui()
