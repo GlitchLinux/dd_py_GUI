@@ -18,7 +18,7 @@ import time
 class DDUtilityApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("DD Utility")
+        self.root.title("DD GUI Utility")  # Changed window title
         self.root.configure(bg='gray20')
 
         self.main_frame = tk.Frame(self.root, bg='gray20')
@@ -28,6 +28,7 @@ class DDUtilityApp:
         self.selected_source_disk = None
         self.selected_destination_disk = None
         self.process = None
+        self.total_size = None  # To store the total size for progress calculation
 
         self.initialize_ui()
 
@@ -152,9 +153,12 @@ class DDUtilityApp:
         self.cancel_button = tk.Button(self.main_frame, text="Cancel", command=self.cancel_dd, width=15, font=("Arial", 10, "bold"))
         self.cancel_button.pack(pady=10)
 
-        # Define progress bar style
+        # Define progress bar style with lime green color
         style = ttk.Style()
-        style.configure('TProgressbar', thickness=20, troughcolor='gray80', background='orange')
+        style.configure('TProgressbar',
+                        thickness=20,
+                        troughcolor='gray80',
+                        background='lime green')  # Updated color
 
         # Update window size based on content
         self.root.update_idletasks()
@@ -175,9 +179,10 @@ class DDUtilityApp:
                 match = re.search(r'(\d+) bytes', line)
                 if match:
                     bytes_transferred = int(match.group(1))
-                    # Placeholder total size; adjust this to actual size if available
-                    total_size = 100 * 1024**3  # 100GB in bytes for demonstration
-                    progress_percentage = min(max(bytes_transferred / total_size * 100, 0.00), 100.00)
+                    if self.total_size:
+                        progress_percentage = min(max(bytes_transferred / self.total_size * 100, 0.00), 100.00)
+                    else:
+                        progress_percentage = 0.00  # Placeholder if total_size is not known
                     # Convert bytes to MB
                     bytes_transferred_mb = bytes_transferred / 1024**2
                     # Update labels
@@ -193,14 +198,25 @@ class DDUtilityApp:
         elif self.selected_source_disk and self.selected_destination_disk:
             src = self.selected_source_disk
             dest = self.selected_destination_disk
+            # Estimate total size by checking the size of the source disk
+            try:
+                self.total_size = int(subprocess.check_output(f"blockdev --getsize64 {src}", shell=True).strip())
+            except subprocess.CalledProcessError:
+                self.total_size = None
         else:
             messagebox.showerror("Error", "Source or Destination disk not selected.")
             self.initialize_ui()
             return
 
         try:
-            # Use a larger block size and `oflag=direct` for efficiency
-            self.process = subprocess.Popen(["sudo", "dd", f"if={src}", f"of={dest}", "bs=64M", "conv=fdatasync", "oflag=direct", "status=progress"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            # Use optimized `dd` parameters
+            cmd = ["sudo", "dd", f"if={src}", f"of={dest}", "bs=1M", "conv=fdatasync", "oflag=direct", "status=progress"]
+            # Optionally use `ionice` to adjust I/O priority
+            cmd = ["ionice", "-c2", "-n0"] + cmd
+            # Optionally use `nice` to adjust CPU priority
+            cmd = ["nice", "-n-10"] + cmd
+
+            self.process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             last_update_time = time.time()
             while True:
                 output = self.process.stderr.readline()
