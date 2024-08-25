@@ -6,7 +6,7 @@ PYTHON_SCRIPT_PATH="/tmp/dd_tmp.py"
 # Create or overwrite the Python script
 cat << 'EOF' > "$PYTHON_SCRIPT_PATH"
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, simpledialog
 from tkinter import ttk
 import subprocess
 import threading
@@ -18,7 +18,7 @@ import time
 class DDUtilityApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("DD GUI Utility")  # Changed window title
+        self.root.title("DD GUI Utility")
         self.root.configure(bg='gray20')
 
         self.main_frame = tk.Frame(self.root, bg='gray20')
@@ -54,7 +54,28 @@ class DDUtilityApp:
             widget.destroy()
 
     def choose_file(self):
-        return filedialog.askopenfilename(title="Select File", filetypes=[("All Files", "*.*")])
+        # Try to use Thunar if available
+        if self.is_program_available("thunar"):
+            return self.open_file_with_thunar()
+        else:
+            # Fallback to default file dialog
+            return filedialog.askopenfilename(title="Select File", filetypes=[("All Files", "*.*")])
+
+    def is_program_available(self, prog):
+        return subprocess.call(["which", prog], stdout=subprocess.PIPE, stderr=subprocess.PIPE) == 0
+
+    def open_file_with_thunar(self):
+        try:
+            # Use Thunar to select a file
+            result = subprocess.run(['zenity', '--file-selection', '--title=Select File'], capture_output=True, text=True)
+            file_path = result.stdout.strip()
+            if os.path.isfile(file_path):
+                return file_path
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open file manager: {e}")
+            return None
+
+        return None
 
     def choose_disk(self, prompt, preselect=None, on_done=None):
         try:
@@ -158,7 +179,7 @@ class DDUtilityApp:
         style.configure('TProgressbar',
                         thickness=20,
                         troughcolor='gray80',
-                        background='lime green')  # Updated color
+                        background='lime green')
 
         # Update window size based on content
         self.root.update_idletasks()
@@ -182,7 +203,8 @@ class DDUtilityApp:
                     if self.total_size:
                         progress_percentage = min(max(bytes_transferred / self.total_size * 100, 0.00), 100.00)
                     else:
-                        progress_percentage = 0.00  # Placeholder if total_size is not known
+                        progress_percentage = 0.00  # Placeholder if total_size is not set
+
                     # Convert bytes to MB
                     bytes_transferred_mb = bytes_transferred / 1024**2
                     # Update labels
@@ -198,19 +220,14 @@ class DDUtilityApp:
         elif self.selected_source_disk and self.selected_destination_disk:
             src = self.selected_source_disk
             dest = self.selected_destination_disk
-            # Estimate total size by checking the size of the source disk
-            try:
-                self.total_size = int(subprocess.check_output(f"blockdev --getsize64 {src}", shell=True).strip())
-            except subprocess.CalledProcessError:
-                self.total_size = None
         else:
             messagebox.showerror("Error", "Source or Destination disk not selected.")
             self.initialize_ui()
             return
 
         try:
-            # Use optimized `dd` parameters
-            cmd = ["sudo", "dd", f"if={src}", f"of={dest}", "bs=1M", "conv=fdatasync", "oflag=direct", "status=progress"]
+            # Use a larger block size and options to potentially speed up the process
+            cmd = ["sudo", "dd", f"if={src}", f"of={dest}", "bs=64M", "conv=fdatasync", "oflag=direct", "status=progress"]
             # Optionally use `ionice` to adjust I/O priority
             cmd = ["ionice", "-c2", "-n0"] + cmd
             # Optionally use `nice` to adjust CPU priority
