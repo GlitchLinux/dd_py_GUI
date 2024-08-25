@@ -6,12 +6,12 @@ PYTHON_SCRIPT_PATH="/tmp/dd_tmp.py"
 # Create or overwrite the Python script
 cat << 'EOF' > "$PYTHON_SCRIPT_PATH"
 import tkinter as tk
-from tkinter import filedialog, messagebox
-from tkinter import ttk
+from tkinter import filedialog, messagebox, ttk
 import subprocess
 import threading
 import re
 import os
+import signal
 
 class DDUtilityApp:
     def __init__(self, root):
@@ -19,44 +19,40 @@ class DDUtilityApp:
         self.root.title("DD Utility")
         self.root.configure(bg='gray20')
 
+        # Create main frame
         self.main_frame = tk.Frame(self.root, bg='gray20')
-        self.main_frame.pack(padx=10, pady=10, fill='both', expand=True)  # Padding around the main frame
+        self.main_frame.pack(padx=10, pady=10, fill='both', expand=True)
 
         self.selected_file = None
         self.selected_source_disk = None
         self.selected_destination_disk = None
         self.total_size = 0  # Total size of source
         self.task_message = ""  # Message to display during operation
+        self.process = None  # Reference to the dd process
+
+        self.font = ("Sans", 11, "bold")  # Font for most of the UI
+        self.disk_selection_font = ("Sans", 13, "bold")  # Larger font for disk selection window
 
         self.initialize_ui()
 
     def initialize_ui(self):
         self.clear_ui()
 
-        self.label = tk.Label(self.main_frame, text="Choose DD Task", bg='gray20', fg='white', font=("Arial", 12, "bold"))
-        self.label.pack(pady=5)
+        self.label = tk.Label(self.main_frame, text="Choose DD Task", bg='gray20', fg='white', font=("Sans", 14, "bold"))
+        self.label.pack(pady=10)
 
-        self.file_to_disk_button = tk.Button(self.main_frame, text="File to Disk", command=self.file_to_disk, width=20, font=("Arial", 10, "bold"))
-        self.file_to_disk_button.pack(pady=5)
+        self.file_to_disk_button = tk.Button(self.main_frame, text="File to Disk", command=self.file_to_disk, width=25, font=self.font)
+        self.file_to_disk_button.pack(pady=10)
 
-        self.disk_to_disk_button = tk.Button(self.main_frame, text="Disk to Disk", command=self.disk_to_disk, width=20, font=("Arial", 10, "bold"))
-        self.disk_to_disk_button.pack(pady=5)
+        self.disk_to_disk_button = tk.Button(self.main_frame, text="Disk to Disk", command=self.disk_to_disk, width=25, font=self.font)
+        self.disk_to_disk_button.pack(pady=10)
 
-        # Update window size based on content
-        self.root.update_idletasks()
-        self.resize_window()
+        # Do not explicitly set window size to use system default
+        self.root.geometry("")
 
     def clear_ui(self):
         for widget in self.main_frame.winfo_children():
             widget.destroy()
-
-    def resize_window(self):
-        # Increase the window size by 20%
-        width = self.main_frame.winfo_reqwidth()
-        height = self.main_frame.winfo_reqheight()
-        new_width = int(width * 1.2)
-        new_height = int(height * 1.2)
-        self.root.geometry(f"{new_width}x{new_height}")
 
     def choose_file(self):
         return filedialog.askopenfilename(title="Select File", filetypes=[("All Files", "*.*")])
@@ -75,9 +71,9 @@ class DDUtilityApp:
                         on_done(selected)
 
             self.clear_ui()
-            tk.Label(self.main_frame, text=prompt, bg='gray20', fg='white', font=("Arial", 10, "bold")).pack(pady=5)
+            tk.Label(self.main_frame, text=prompt, bg='gray20', fg='white', font=self.disk_selection_font).pack(pady=10)
 
-            disk_listbox = tk.Listbox(self.main_frame, selectmode=tk.SINGLE, bg='white', font=("Arial", 10))
+            disk_listbox = tk.Listbox(self.main_frame, selectmode=tk.SINGLE, bg='white', font=self.disk_selection_font)
             disk_listbox.pack(fill='both', expand=True)
 
             for disk in disk_choices:
@@ -91,12 +87,8 @@ class DDUtilityApp:
                 except ValueError:
                     pass
 
-            ok_button = tk.Button(self.main_frame, text="OK", command=on_select, font=("Arial", 10, "bold"))
-            ok_button.pack(pady=5)
-
-            # Update window size based on content
-            self.root.update_idletasks()
-            self.resize_window()
+            ok_button = tk.Button(self.main_frame, text="OK", command=on_select, font=self.font)
+            ok_button.pack(pady=10)
 
         except subprocess.CalledProcessError as e:
             messagebox.showerror("Error", f"Failed to list disks: {e}")
@@ -133,49 +125,53 @@ class DDUtilityApp:
             self.update_task_message()
             self.show_confirmation()
 
+    def show_confirmation(self):
+        # Create confirmation message
+        confirmation_message = (
+            f"Source Disk: {self.selected_source_disk}\n"
+            f"Destination Disk: {self.selected_destination_disk}\n"
+            "Do you want to proceed with this operation?"
+        )
+        result = messagebox.askyesno("Confirm Operation", confirmation_message)
+        if result:
+            self.show_progress()
+        else:
+            self.initialize_ui()
+
     def update_task_message(self):
         if self.selected_file:
             self.task_message = f"Flashing {os.path.basename(self.selected_file)} to {self.selected_destination_disk}"
         elif self.selected_source_disk and self.selected_destination_disk:
             self.task_message = f"Cloning {self.selected_source_disk} to {self.selected_destination_disk}"
 
-    def show_confirmation(self):
-        if self.selected_file:
-            confirmation_message = f"File: {self.selected_file}\nDestination: {self.selected_destination_disk}"
-        elif self.selected_source_disk and self.selected_destination_disk:
-            confirmation_message = f"Source: {self.selected_source_disk}\nDestination: {self.selected_destination_disk}"
-        else:
-            confirmation_message = "Invalid selection."
-
-        result = messagebox.askyesno("Confirm DD Task", f"Do you want to execute the following task?\n\n{confirmation_message}")
-
-        if result:
-            self.show_progress()
-            threading.Thread(target=self.execute_dd).start()
-        else:
-            self.initialize_ui()
-
     def show_progress(self):
         self.clear_ui()
 
         # Display the current DD task message
-        self.task_label = tk.Label(self.main_frame, text=self.task_message, bg='gray20', fg='white', font=("Arial", 12, "bold"))
-        self.task_label.pack(pady=(20, 10))  # Adjust padding to ensure it fits
+        self.task_label = tk.Label(self.main_frame, text=self.task_message, bg='gray20', fg='white', font=("Sans", 14, "bold"))
+        self.task_label.pack(pady=10)
 
         # Progress bar and info
-        self.progress_bar = ttk.Progressbar(self.main_frame, length=300, mode='determinate', style='green.Horizontal.TProgressbar')
-        self.progress_bar.pack(pady=5)
+        self.progress_bar = ttk.Progressbar(self.main_frame, length=280, mode='determinate', style='white.Horizontal.TProgressbar')
+        self.progress_bar.pack(pady=10, fill='x')  # Fill the width of the container
 
-        self.progress_info = tk.Label(self.main_frame, text="Copied: 0.00 MB, 0.00% Done", bg='gray20', fg='white', font=("Arial", 10, "bold"))
-        self.progress_info.pack(pady=5)
+        self.progress_info = tk.Label(self.main_frame, text="Copied: 0 MB, 0% Done", bg='gray20', fg='white', font=("Sans", 14, "bold"))
+        self.progress_info.pack(pady=10)
 
-        # Configure the neon bright green progress bar style
+        # Frame for centering the cancel button
+        button_frame = tk.Frame(self.main_frame, bg='gray20')
+        button_frame.pack(pady=10)
+
+        # Cancel button with standardized color
+        self.cancel_button = tk.Button(button_frame, text="Cancel", command=self.cancel_dd, font=self.font, bg='gray80', fg='black')
+        self.cancel_button.pack()
+
+        # Configure the white progress bar style
         style = ttk.Style()
-        style.configure('green.Horizontal.TProgressbar', troughcolor='gray20', background='limegreen', thickness=20)
+        style.configure('white.Horizontal.TProgressbar', troughcolor='gray20', background='white', thickness=25)
 
-        # Update window size based on content
-        self.root.update_idletasks()
-        self.resize_window()
+        # Start the dd process in a separate thread
+        threading.Thread(target=self.execute_dd).start()
 
     def update_progress(self, line):
         # Extracting data from dd output
@@ -185,8 +181,10 @@ class DDUtilityApp:
             copied_mb = copied_bytes / (1024 * 1024)
             if self.total_size > 0:
                 progress_percentage = min((copied_bytes / self.total_size) * 100, 100)
+                # Format copied MB to an integer with leading zeros
+                copied_mb_formatted = f"{int(copied_mb):04d}"
                 self.root.after(0, self.progress_bar.config, {'value': progress_percentage})
-                self.root.after(0, self.progress_info.config, {'text': f"Copied: {copied_mb:.2f} MB, {progress_percentage:.2f}% Done"})
+                self.root.after(0, self.progress_info.config, {'text': f"Copied: {copied_mb_formatted} MB, {progress_percentage:.0f}% Done"})
 
     def execute_dd(self):
         if self.selected_file and self.selected_destination_disk:
@@ -201,19 +199,36 @@ class DDUtilityApp:
             return
 
         try:
-            # Use a larger block size and conv=fdatasync for efficiency
-            process = subprocess.Popen(["sudo", "dd", f"if={src}", f"of={dest}", "bs=8M", "conv=fdatasync", "status=progress"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            self.process = subprocess.Popen(["sudo", "dd", f"if={src}", f"of={dest}", "bs=8M", "conv=fdatasync", "status=progress"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             while True:
-                line = process.stderr.readline()
+                line = self.process.stderr.readline()
                 if not line:
                     break
                 self.root.after(0, self.update_progress, line.strip())
-            process.wait()
-            self.root.after(0, messagebox.showinfo, "DD Completed", "DD operation completed successfully.")
+            self.process.wait()
+            self.root.after(0, self.show_completion_message)
         except subprocess.CalledProcessError as e:
             self.root.after(0, messagebox.showerror, "Error", f"DD operation failed: {e}")
         finally:
-            self.root.after(0, self.initialize_ui)
+            self.process = None
+
+    def cancel_dd(self):
+        if self.process:
+            self.process.send_signal(signal.SIGINT)  # Send SIGINT to stop the process
+            self.process = None
+        self.root.after(0, self.initialize_ui)
+
+    def show_completion_message(self):
+        self.clear_ui()
+        self.completion_label = tk.Label(self.main_frame, text="DD operation completed successfully.", bg='gray20', fg='white', font=("Sans", 14, "bold"))
+        self.completion_label.pack(pady=10)
+
+        # "Exit" and "New DD" buttons
+        self.exit_button = tk.Button(self.main_frame, text="Exit", command=self.root.quit, font=self.font)
+        self.exit_button.pack(side='left', padx=10, pady=10)
+
+        self.new_dd_button = tk.Button(self.main_frame, text="New DD", command=self.initialize_ui, font=self.font)
+        self.new_dd_button.pack(side='left', padx=10, pady=10)
 
 def main():
     root = tk.Tk()
