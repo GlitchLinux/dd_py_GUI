@@ -12,23 +12,21 @@ import subprocess
 import threading
 import re
 import os
-import signal
-import time
 
 class DDUtilityApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("DD GUI Utility")
+        self.root.title("DD Utility")
         self.root.configure(bg='gray20')
 
         self.main_frame = tk.Frame(self.root, bg='gray20')
-        self.main_frame.pack(padx=10, pady=10)  # Padding around the main frame
+        self.main_frame.pack(padx=10, pady=10, fill='both', expand=True)  # Padding around the main frame
 
         self.selected_file = None
         self.selected_source_disk = None
         self.selected_destination_disk = None
-        self.process = None
-        self.total_size = None  # To store the total size for progress calculation
+        self.total_size = 0  # Total size of source
+        self.task_message = ""  # Message to display during operation
 
         self.initialize_ui()
 
@@ -44,45 +42,30 @@ class DDUtilityApp:
         self.disk_to_disk_button = tk.Button(self.main_frame, text="Disk to Disk", command=self.disk_to_disk, width=20, font=("Arial", 10, "bold"))
         self.disk_to_disk_button.pack(pady=5)
 
-        # Update window size based on content and increase width by 10%
+        # Update window size based on content
         self.root.update_idletasks()
-        min_width = int(self.main_frame.winfo_reqwidth() * 1.1)
-        min_height = self.main_frame.winfo_reqheight() + 50
-        self.root.geometry(f"{min_width}x{min_height}")
+        self.resize_window()
 
     def clear_ui(self):
         for widget in self.main_frame.winfo_children():
             widget.destroy()
 
+    def resize_window(self):
+        # Increase the window size by 20%
+        width = self.main_frame.winfo_reqwidth()
+        height = self.main_frame.winfo_reqheight()
+        new_width = int(width * 1.2)
+        new_height = int(height * 1.2)
+        self.root.geometry(f"{new_width}x{new_height}")
+
     def choose_file(self):
-        # Try to use Thunar if available
-        if self.is_program_available("thunar"):
-            return self.open_file_with_thunar()
-        else:
-            # Fallback to default file dialog
-            return filedialog.askopenfilename(title="Select File", filetypes=[("All Files", "*.*")])
-
-    def is_program_available(self, prog):
-        return subprocess.call(["which", prog], stdout=subprocess.PIPE, stderr=subprocess.PIPE) == 0
-
-    def open_file_with_thunar(self):
-        try:
-            # Use Thunar to select a file
-            result = subprocess.run(['zenity', '--file-selection', '--title=Select File'], capture_output=True, text=True)
-            file_path = result.stdout.strip()
-            if os.path.isfile(file_path):
-                return file_path
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to open file manager: {e}")
-            return None
-
-        return None
+        return filedialog.askopenfilename(title="Select File", filetypes=[("All Files", "*.*")])
 
     def choose_disk(self, prompt, preselect=None, on_done=None):
         try:
-            # Get device names and sizes including /dev/mmcblk* and /dev/loop*
+            # Get device names and sizes
             disk_details = subprocess.check_output(["lsblk", "-dpno", "NAME,SIZE"]).decode().strip().split("\n")
-            disk_choices = [f"{line.split()[0]} ({line.split()[1]})" for line in disk_details if line.startswith('/dev/sd') or line.startswith('/dev/mmcblk') or line.startswith('/dev/loop')]
+            disk_choices = [f"{line.split()[0]} ({line.split()[1]})" for line in disk_details if line.startswith('/dev/sd')]
 
             def on_select():
                 selection = disk_listbox.curselection()
@@ -111,11 +94,9 @@ class DDUtilityApp:
             ok_button = tk.Button(self.main_frame, text="OK", command=on_select, font=("Arial", 10, "bold"))
             ok_button.pack(pady=5)
 
-            # Update window size based on content and increase width by 10%
+            # Update window size based on content
             self.root.update_idletasks()
-            min_width = int(self.main_frame.winfo_reqwidth() * 1.1)
-            min_height = self.main_frame.winfo_reqheight() + 50
-            self.root.geometry(f"{min_width}x{min_height}")
+            self.resize_window()
 
         except subprocess.CalledProcessError as e:
             messagebox.showerror("Error", f"Failed to list disks: {e}")
@@ -127,6 +108,7 @@ class DDUtilityApp:
             self.initialize_ui()
             return
 
+        self.total_size = os.path.getsize(self.selected_file)
         self.choose_disk("Choose disk to write to:", on_done=self.set_destination_disk)
 
     def disk_to_disk(self):
@@ -136,16 +118,30 @@ class DDUtilityApp:
     def set_source_disk(self, source):
         if source:
             self.selected_source_disk = source
+            # Determine total size of source disk
+            try:
+                self.total_size = int(subprocess.check_output(["sudo", "blockdev", "--getsize64", source]).strip())
+            except subprocess.CalledProcessError as e:
+                messagebox.showerror("Error", f"Failed to get size of source disk: {e}")
+                self.initialize_ui()
+                return
             self.choose_disk("Choose disk to write to (destination):", on_done=self.set_destination_disk)
 
     def set_destination_disk(self, destination):
         if destination:
             self.selected_destination_disk = destination
+            self.update_task_message()
             self.show_confirmation()
+
+    def update_task_message(self):
+        if self.selected_file:
+            self.task_message = f"Flashing {os.path.basename(self.selected_file)} to {self.selected_destination_disk}"
+        elif self.selected_source_disk and self.selected_destination_disk:
+            self.task_message = f"Cloning {self.selected_source_disk} to {self.selected_destination_disk}"
 
     def show_confirmation(self):
         if self.selected_file:
-            confirmation_message = f"File: {os.path.basename(self.selected_file)}\nDestination: {self.selected_destination_disk}"
+            confirmation_message = f"File: {self.selected_file}\nDestination: {self.selected_destination_disk}"
         elif self.selected_source_disk and self.selected_destination_disk:
             confirmation_message = f"Source: {self.selected_source_disk}\nDestination: {self.selected_destination_disk}"
         else:
@@ -161,101 +157,71 @@ class DDUtilityApp:
 
     def show_progress(self):
         self.clear_ui()
-        self.progress_label = tk.Label(self.main_frame, text="DD Operation Running:", bg='gray20', fg='white', font=("Arial", 12, "bold"))
-        self.progress_label.pack(pady=5)
 
-        self.task_label = tk.Label(self.main_frame, text=self.get_task_description(), bg='gray20', fg='white', font=("Arial", 10, "bold"))
-        self.task_label.pack(pady=5)
+        # Display the current DD task message
+        self.task_label = tk.Label(self.main_frame, text=self.task_message, bg='gray20', fg='white', font=("Arial", 12, "bold"))
+        self.task_label.pack(pady=(20, 10))  # Adjust padding to ensure it fits
 
-        self.progress_bar = ttk.Progressbar(self.main_frame, length=300, mode='determinate', style='TProgressbar')
+        # Progress bar and info
+        self.progress_bar = ttk.Progressbar(self.main_frame, length=300, mode='determinate', style='green.Horizontal.TProgressbar')
         self.progress_bar.pack(pady=5)
 
-        self.progress_label_amount = tk.Label(self.main_frame, text="0 MB Copied - 0.00% Done", bg='gray20', fg='white', font=("Arial", 10, "bold"))
-        self.progress_label_amount.pack(pady=5)
+        self.progress_info = tk.Label(self.main_frame, text="Copied: 0.00 MB, 0.00% Done", bg='gray20', fg='white', font=("Arial", 10, "bold"))
+        self.progress_info.pack(pady=5)
 
-        self.cancel_button = tk.Button(self.main_frame, text="Cancel", command=self.cancel_dd, width=15, font=("Arial", 10, "bold"))
-        self.cancel_button.pack(pady=10)
-
-        # Define progress bar style with lime green color
+        # Configure the neon bright green progress bar style
         style = ttk.Style()
-        style.configure('TProgressbar',
-                        thickness=20,
-                        troughcolor='gray80',
-                        background='lime green')
+        style.configure('green.Horizontal.TProgressbar', troughcolor='gray20', background='limegreen', thickness=20)
 
-        # Update window size based on content and increase width by 10%
+        # Update window size based on content
         self.root.update_idletasks()
-        min_width = int(self.main_frame.winfo_reqwidth() * 1.1)
-        min_height = self.main_frame.winfo_reqheight() + 50
-        self.root.geometry(f"{min_width}x{min_height}")
-
-    def get_task_description(self):
-        if self.selected_file:
-            return f"Flashing {os.path.basename(self.selected_file)} to {self.selected_destination_disk}"
-        elif self.selected_source_disk and self.selected_destination_disk:
-            return f"Cloning {self.selected_source_disk} to {self.selected_destination_disk}"
-        return "No task description available"
+        self.resize_window()
 
     def update_progress(self, line):
-        if 'bytes' in line:
-            try:
-                # Extract bytes transferred from `dd` progress output
-                match = re.search(r'(\d+) bytes', line)
-                if match:
-                    bytes_transferred = int(match.group(1))
-                    if self.total_size:
-                        progress_percentage = min(max(bytes_transferred / self.total_size * 100, 0.00), 100.00)
-                    else:
-                        progress_percentage = 0.00  # Placeholder if total_size is not set
-
-                    # Convert bytes to MB
-                    bytes_transferred_mb = bytes_transferred / (1024 * 1024)
-
-                    self.progress_bar['value'] = progress_percentage
-                    self.progress_label_amount.config(text=f"{bytes_transferred_mb:.2f} MB Copied - {progress_percentage:.2f}% Done")
-                    self.root.update_idletasks()
-            except ValueError:
-                pass
+        # Extracting data from dd output
+        match = re.search(r'(\d+) bytes', line)
+        if match:
+            copied_bytes = int(match.group(1))
+            copied_mb = copied_bytes / (1024 * 1024)
+            if self.total_size > 0:
+                progress_percentage = min((copied_bytes / self.total_size) * 100, 100)
+                self.root.after(0, self.progress_bar.config, {'value': progress_percentage})
+                self.root.after(0, self.progress_info.config, {'text': f"Copied: {copied_mb:.2f} MB, {progress_percentage:.2f}% Done"})
 
     def execute_dd(self):
-        if self.selected_file:
-            command = ["dd", f"if={self.selected_file}", f"of={self.selected_destination_disk}", "status=progress", "bs=4M"]
+        if self.selected_file and self.selected_destination_disk:
+            src = self.selected_file
+            dest = self.selected_destination_disk
         elif self.selected_source_disk and self.selected_destination_disk:
-            command = ["dd", f"if={self.selected_source_disk}", f"of={self.selected_destination_disk}", "status=progress", "bs=4M"]
+            src = self.selected_source_disk
+            dest = self.selected_destination_disk
+        else:
+            messagebox.showerror("Error", "Source or Destination disk not selected.")
+            self.initialize_ui()
+            return
 
         try:
-            # Start the dd process
-            self.process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-
-            # Extract total size from the disk if available
-            if self.selected_source_disk:
-                size_output = subprocess.check_output(['blockdev', '--getsize64', self.selected_source_disk]).strip()
-                self.total_size = int(size_output)
-
-            # Read and process the output line by line
-            for line in self.process.stderr:
-                self.update_progress(line)
-                if self.process.poll() is not None:
+            # Use a larger block size and conv=fdatasync for efficiency
+            process = subprocess.Popen(["sudo", "dd", f"if={src}", f"of={dest}", "bs=8M", "conv=fdatasync", "status=progress"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            while True:
+                line = process.stderr.readline()
+                if not line:
                     break
-
-            self.process.wait()  # Wait for the process to complete
-
-            messagebox.showinfo("Info", "DD Operation Completed Successfully.")
-        except Exception as e:
-            messagebox.showerror("Error", f"DD Operation Failed: {e}")
+                self.root.after(0, self.update_progress, line.strip())
+            process.wait()
+            self.root.after(0, messagebox.showinfo, "DD Completed", "DD operation completed successfully.")
+        except subprocess.CalledProcessError as e:
+            self.root.after(0, messagebox.showerror, "Error", f"DD operation failed: {e}")
         finally:
-            self.initialize_ui()
+            self.root.after(0, self.initialize_ui)
 
-    def cancel_dd(self):
-        if self.process:
-            os.kill(self.process.pid, signal.SIGTERM)
-            self.process = None
-            self.initialize_ui()
-
-if __name__ == "__main__":
+def main():
     root = tk.Tk()
     app = DDUtilityApp(root)
     root.mainloop()
+
+if __name__ == "__main__":
+    main()
 EOF
 
 # Make the Python script executable
