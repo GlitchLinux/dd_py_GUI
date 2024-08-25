@@ -11,6 +11,9 @@ from tkinter import ttk
 import subprocess
 import threading
 import re
+import os
+import signal
+import time
 
 class DDUtilityApp:
     def __init__(self, root):
@@ -24,6 +27,7 @@ class DDUtilityApp:
         self.selected_file = None
         self.selected_source_disk = None
         self.selected_destination_disk = None
+        self.process = None
 
         self.initialize_ui()
 
@@ -133,20 +137,24 @@ class DDUtilityApp:
 
     def show_progress(self):
         self.clear_ui()
-        self.progress_label = tk.Label(self.main_frame, text="Operation in progress...", bg='gray20', fg='white', font=("Arial", 12, "bold"))
+        self.progress_label = tk.Label(self.main_frame, text="DD Operation Running:", bg='gray20', fg='white', font=("Arial", 12, "bold"))
         self.progress_label.pack(pady=5)
 
         self.task_label = tk.Label(self.main_frame, text=self.get_task_description(), bg='gray20', fg='white', font=("Arial", 10, "bold"))
         self.task_label.pack(pady=5)
 
-        self.progress_bar = ttk.Progressbar(self.main_frame, length=300, mode='determinate')
+        self.progress_bar = ttk.Progressbar(self.main_frame, length=300, mode='determinate', style='TProgressbar')
         self.progress_bar.pack(pady=5)
 
-        self.progress_label_amount = tk.Label(self.main_frame, text="0.00 MB / 0.00 MB", bg='gray20', fg='white', font=("Arial", 10, "bold"))
+        self.progress_label_amount = tk.Label(self.main_frame, text="0 MB Copied - 0.00% Done", bg='gray20', fg='white', font=("Arial", 10, "bold"))
         self.progress_label_amount.pack(pady=5)
 
-        self.progress_percentage = tk.Label(self.main_frame, text="0.00%", bg='gray20', fg='white', font=("Arial", 10, "bold"))
-        self.progress_percentage.pack(pady=5)
+        self.cancel_button = tk.Button(self.main_frame, text="Cancel", command=self.cancel_dd, width=15, font=("Arial", 10, "bold"))
+        self.cancel_button.pack(pady=10)
+
+        # Define progress bar style
+        style = ttk.Style()
+        style.configure('TProgressbar', thickness=20, troughcolor='gray80', background='orange')
 
         # Update window size based on content
         self.root.update_idletasks()
@@ -155,9 +163,9 @@ class DDUtilityApp:
 
     def get_task_description(self):
         if self.selected_file:
-            return f"Copying from {self.selected_file} to {self.selected_destination_disk}"
+            return f"Flashing {self.selected_file} to {self.selected_destination_disk}"
         elif self.selected_source_disk and self.selected_destination_disk:
-            return f"Copying from {self.selected_source_disk} to {self.selected_destination_disk}"
+            return f"Cloning {self.selected_source_disk} to {self.selected_destination_disk}"
         return "No task description available"
 
     def update_progress(self, line):
@@ -168,13 +176,13 @@ class DDUtilityApp:
                 if match:
                     bytes_transferred = int(match.group(1))
                     # Placeholder total size; adjust this to actual size if available
-                    total_size = 100 * 1024**3  # 100GB in bytes
+                    total_size = 100 * 1024**3  # 100GB in bytes for demonstration
                     progress_percentage = min(max(bytes_transferred / total_size * 100, 0.00), 100.00)
+                    # Convert bytes to MB
+                    bytes_transferred_mb = bytes_transferred / 1024**2
                     # Update labels
                     self.root.after(0, self.progress_bar.config, {'value': progress_percentage})
-                    self.root.after(0, self.progress_percentage.config, {'text': f"{progress_percentage:.2f}%"})
-                    # Update the amount of data copied
-                    self.root.after(0, self.progress_label_amount.config, {'text': f"{bytes_transferred / 1024**2:.2f} MB / {total_size / 1024**2:.2f} MB"})
+                    self.root.after(0, self.progress_label_amount.config, {'text': f"{bytes_transferred_mb:.2f} MB Copied - {progress_percentage:.2f}% Done"})
             except ValueError:
                 pass
 
@@ -191,15 +199,27 @@ class DDUtilityApp:
             return
 
         try:
-            process = subprocess.Popen(["sudo", "dd", f"if={src}", f"of={dest}", "bs=8M", "conv=fdatasync", "status=progress"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            for line in process.stderr:
-                self.root.after(0, self.update_progress, line.strip())
-            process.wait()
+            # Use a larger block size and `oflag=direct` for efficiency
+            self.process = subprocess.Popen(["sudo", "dd", f"if={src}", f"of={dest}", "bs=64M", "conv=fdatasync", "oflag=direct", "status=progress"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            last_update_time = time.time()
+            while True:
+                output = self.process.stderr.readline()
+                if output:
+                    self.update_progress(output.strip())
+                    last_update_time = time.time()
+                if self.process.poll() is not None:
+                    break
             self.root.after(0, messagebox.showinfo, "DD Completed", "DD operation completed successfully.")
         except subprocess.CalledProcessError as e:
             self.root.after(0, messagebox.showerror, "Error", f"DD operation failed: {e}")
         finally:
             self.root.after(0, self.initialize_ui)
+
+    def cancel_dd(self):
+        if self.process:
+            os.kill(self.process.pid, signal.SIGINT)
+            self.process = None
+        self.initialize_ui()
 
 def main():
     root = tk.Tk()
