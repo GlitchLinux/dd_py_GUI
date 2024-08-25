@@ -30,15 +30,15 @@ class DDUtilityApp:
         self.task_message = ""  # Message to display during operation
         self.process = None  # Reference to the dd process
 
-        self.font = ("Sans", 11, "bold")  # Font for most of the UI
-        self.disk_selection_font = ("Sans", 13, "bold")  # Larger font for disk selection window
+        self.font = ("Sans", 11)  # Font for most of the UI
+        self.disk_selection_font = ("Sans", 13)  # Larger font for disk selection window
 
         self.initialize_ui()
 
     def initialize_ui(self):
         self.clear_ui()
 
-        self.label = tk.Label(self.main_frame, text="Choose DD Task", bg='gray20', fg='white', font=("Sans", 14, "bold"))
+        self.label = tk.Label(self.main_frame, text="Choose DD Task", bg='gray20', fg='white', font=("Sans", 14))
         self.label.pack(pady=10)
 
         self.file_to_disk_button = tk.Button(self.main_frame, text="File to Disk", command=self.file_to_disk, width=25, font=self.font)
@@ -55,13 +55,16 @@ class DDUtilityApp:
             widget.destroy()
 
     def choose_file(self):
-        return filedialog.askopenfilename(title="Select File", filetypes=[("All Files", "*.*")])
+        return filedialog.askopenfilename(title="Select File", filetypes=[("Disk Images", "*.img *.iso"), ("All Files", "*.*")])
 
     def choose_disk(self, prompt, preselect=None, on_done=None):
         try:
-            # Get device names and sizes
-            disk_details = subprocess.check_output(["lsblk", "-dpno", "NAME,SIZE"]).decode().strip().split("\n")
-            disk_choices = [f"{line.split()[0]} ({line.split()[1]})" for line in disk_details if line.startswith('/dev/sd')]
+            # Get device names and sizes, include SD cards and loop devices
+            disk_details = subprocess.check_output(["lsblk", "-dpno", "NAME,SIZE,TYPE"]).decode().strip().split("\n")
+            disk_choices = [
+                f"{line.split()[0]} ({line.split()[1]})" for line in disk_details
+                if line.startswith('/dev/sd') or line.startswith('/dev/mmcblk') or line.startswith('/dev/loop')
+            ]
 
             def on_select():
                 selection = disk_listbox.curselection()
@@ -94,7 +97,6 @@ class DDUtilityApp:
             messagebox.showerror("Error", f"Failed to list disks: {e}")
 
     def file_to_disk(self):
-        self.clear_ui()
         self.selected_file = self.choose_file()
         if not self.selected_file:
             self.initialize_ui()
@@ -104,7 +106,6 @@ class DDUtilityApp:
         self.choose_disk("Choose disk to write to:", on_done=self.set_destination_disk)
 
     def disk_to_disk(self):
-        self.clear_ui()
         self.choose_disk("Choose disk to read from (source):", on_done=self.set_source_disk)
 
     def set_source_disk(self, source):
@@ -122,53 +123,66 @@ class DDUtilityApp:
     def set_destination_disk(self, destination):
         if destination:
             self.selected_destination_disk = destination
-            self.update_task_message()
             self.show_confirmation()
 
     def show_confirmation(self):
-        # Create confirmation message
-        confirmation_message = (
-            f"Source Disk: {self.selected_source_disk}\n"
-            f"Destination Disk: {self.selected_destination_disk}\n"
-            "Do you want to proceed with this operation?"
-        )
-        result = messagebox.askyesno("Confirm Operation", confirmation_message)
-        if result:
-            self.show_progress()
-        else:
-            self.initialize_ui()
+        self.clear_ui()
 
-    def update_task_message(self):
-        if self.selected_file:
-            self.task_message = f"Flashing {os.path.basename(self.selected_file)} to {self.selected_destination_disk}"
-        elif self.selected_source_disk and self.selected_destination_disk:
-            self.task_message = f"Cloning {self.selected_source_disk} to {self.selected_destination_disk}"
+        if self.selected_file:  # File to Disk
+            confirmation_message = (
+                f"Source File: {os.path.basename(self.selected_file)}\n"
+                f"Destination Disk: {self.selected_destination_disk}\n"
+                "Do you want to proceed with this operation?"
+            )
+        else:  # Disk to Disk
+            confirmation_message = (
+                f"Source Disk: {self.selected_source_disk}\n"
+                f"Destination Disk: {self.selected_destination_disk}\n"
+                "Do you want to proceed with this operation?"
+            )
+
+        tk.Label(self.main_frame, text=confirmation_message, bg='gray20', fg='white', font=("Sans", 14)).pack(pady=10)
+
+        # "Cancel" and "Continue" buttons with positions switched
+        cancel_button = tk.Button(self.main_frame, text="Cancel", command=self.initialize_ui, font=self.font, bg='gray80', fg='black')
+        cancel_button.pack(side='left', padx=10, pady=10)
+
+        continue_button = tk.Button(self.main_frame, text="Continue", command=self.show_progress, font=self.font)
+        continue_button.pack(side='right', padx=10, pady=10)
 
     def show_progress(self):
         self.clear_ui()
 
+        # Update the task message based on the operation type
+        if self.selected_file:
+            self.task_message = f"Flashing {os.path.basename(self.selected_file)} to {self.selected_destination_disk}"
+        else:
+            self.task_message = f"Cloning {self.selected_source_disk} to {self.selected_destination_disk}"
+
         # Display the current DD task message
-        self.task_label = tk.Label(self.main_frame, text=self.task_message, bg='gray20', fg='white', font=("Sans", 14, "bold"))
+        self.task_label = tk.Label(self.main_frame, text=self.task_message, bg='gray20', fg='white', font=("Sans", 14))
         self.task_label.pack(pady=10)
 
         # Progress bar and info
-        self.progress_bar = ttk.Progressbar(self.main_frame, length=280, mode='determinate', style='white.Horizontal.TProgressbar')
+        style = ttk.Style()
+        style.configure('fancy.Horizontal.TProgressbar',
+                        troughcolor='gray20',
+                        background='#00FF88',  # Bright greenish color
+                        thickness=10)  # Thinner progress bar
+
+        self.progress_bar = ttk.Progressbar(self.main_frame, length=280, mode='determinate', style='fancy.Horizontal.TProgressbar')
         self.progress_bar.pack(pady=10, fill='x')  # Fill the width of the container
 
-        self.progress_info = tk.Label(self.main_frame, text="Copied: 0 MB, 0% Done", bg='gray20', fg='white', font=("Sans", 14, "bold"))
+        self.progress_info = tk.Label(self.main_frame, text="Copied: 0 MB, 0% Done", bg='gray20', fg='white', font=("Sans", 14))
         self.progress_info.pack(pady=10)
 
         # Frame for centering the cancel button
         button_frame = tk.Frame(self.main_frame, bg='gray20')
         button_frame.pack(pady=10)
 
-        # Cancel button with standardized color
+        # Cancel button with standardized color, spanning the width of the progress bar
         self.cancel_button = tk.Button(button_frame, text="Cancel", command=self.cancel_dd, font=self.font, bg='gray80', fg='black')
-        self.cancel_button.pack()
-
-        # Configure the white progress bar style
-        style = ttk.Style()
-        style.configure('white.Horizontal.TProgressbar', troughcolor='gray20', background='white', thickness=25)
+        self.cancel_button.pack(fill='x', padx=10)
 
         # Start the dd process in a separate thread
         threading.Thread(target=self.execute_dd).start()
@@ -194,12 +208,12 @@ class DDUtilityApp:
             src = self.selected_source_disk
             dest = self.selected_destination_disk
         else:
-            messagebox.showerror("Error", "Source or Destination disk not selected.")
-            self.initialize_ui()
             return
 
         try:
-            self.process = subprocess.Popen(["sudo", "dd", f"if={src}", f"of={dest}", "bs=8M", "conv=fdatasync", "status=progress"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            self.process = subprocess.Popen(
+                ["sudo", "dd", f"if={src}", f"of={dest}", "bs=4M", "conv=fdatasync", "status=progress"],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             while True:
                 line = self.process.stderr.readline()
                 if not line:
@@ -220,7 +234,7 @@ class DDUtilityApp:
 
     def show_completion_message(self):
         self.clear_ui()
-        self.completion_label = tk.Label(self.main_frame, text="DD operation completed successfully.", bg='gray20', fg='white', font=("Sans", 14, "bold"))
+        self.completion_label = tk.Label(self.main_frame, text="DD operation completed successfully.", bg='gray20', fg='white', font=("Sans", 14))
         self.completion_label.pack(pady=10)
 
         # "Exit" and "New DD" buttons
