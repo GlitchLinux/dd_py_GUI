@@ -1,8 +1,3 @@
-# dd_py_GUI
-Python based dd GUI utility
-
-
-
 #!/bin/bash
 
 # Define the path for the temporary Python script
