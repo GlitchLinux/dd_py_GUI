@@ -21,11 +21,9 @@ A graphical user interface (GUI) tool for using the `dd` command to copy files a
 - Tkinter library (usually included with Python).
 - `lsblk` command for disk listing.
 
-## Installation
+## Installation & Execution
 
-### 1. Clone the Repository
-
-To get started, clone this repository to your local machine:
+### 1. Clone the Repository & Run Script
 
 ```bash
 git clone https://github.com/GlitchLinux/dd_py_GUI.git
