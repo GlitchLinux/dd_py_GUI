@@ -1,8 +1,8 @@
- ![progress](https://github.com/user-attachments/assets/8ac77f99-05ec-4ec5-8a80-ca3335e3eccb)
-
 # DD Utility GUI
 
 A graphical user interface (GUI) tool for using the `dd` command to copy files and disks. It offers the ability to copy a file to a disk or clone one disk to another with progress tracking and error handling.
+
+![dd-1st-gui](https://github.com/user-attachments/assets/26a111fb-8522-46ff-bfd3-e9476d630959)
 
 ## Features
 
@@ -19,7 +19,7 @@ A graphical user interface (GUI) tool for using the `dd` command to copy files a
 - Tkinter library (usually included with Python).
 - `lsblk` command for disk listing.
 
-![dd-1st-gui](https://github.com/user-attachments/assets/26a111fb-8522-46ff-bfd3-e9476d630959)
+![progress](https://github.com/user-attachments/assets/8ac77f99-05ec-4ec5-8a80-ca3335e3eccb)
 
 ## Installation
 
@@ -31,4 +31,3 @@ To get started, clone this repository to your local machine:
 git clone https://github.com/GlitchLinux/dd_py_GUI.git
 cd dd_py_GUI
 bash dd_GUI.sh
-
