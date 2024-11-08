@@ -1,4 +1,4 @@
-![dd-1st-gui](https://github.com/user-attachments/assets/26a111fb-8522-46ff-bfd3-e9476d630959) ![progress](https://github.com/user-attachments/assets/8ac77f99-05ec-4ec5-8a80-ca3335e3eccb)
+ ![progress](https://github.com/user-attachments/assets/8ac77f99-05ec-4ec5-8a80-ca3335e3eccb)
 
 # DD Utility GUI
 
@@ -18,6 +18,8 @@ A graphical user interface (GUI) tool for using the `dd` command to copy files a
 - Python 3.
 - Tkinter library (usually included with Python).
 - `lsblk` command for disk listing.
+
+![dd-1st-gui](https://github.com/user-attachments/assets/26a111fb-8522-46ff-bfd3-e9476d630959)
 
 ## Installation
 
