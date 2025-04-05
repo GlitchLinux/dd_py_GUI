@@ -1,31 +1,38 @@
-# DD Utility GUI
+# DD GUI Utility
 
-A graphical user interface (GUI) tool for using the `dd` command to copy files and disks. It offers the ability to copy a file to a disk or clone one disk to another with progress tracking and error handling.
+A graphical interface for disk management operations using dd and other Linux tools.
 
-![dd-1st-gui](https://github.com/user-attachments/assets/26a111fb-8522-46ff-bfd3-e9476d630959)
+![DD GUI Screenshot](/etc/dd_gui/DD_GUI.png)
 
 ## Features
 
-- Choose between "File to Disk" and "Disk to Disk" operations.
-- Select source and destination disks using a GUI.
-- Progress bar and detailed task info during the operation.
-- Cancel ongoing operations at any time.
-- Easy-to-use interface built with Python and Tkinter.
+- File to Disk flashing
+- Disk to Disk cloning
+- Partition table creation (MBR/GPT)
+- Disk/partition formatting (FAT, NTFS, EXT, etc.)
+- Secure disk erasure
+- Disk image creation
+- Progress tracking for all operations
 
-![progress](https://github.com/user-attachments/assets/8ac77f99-05ec-4ec5-8a80-ca3335e3eccb)
+## Installation
 
-## Requirements
+### From .deb package
 
-- Linux operating system with `dd` command installed.
-- Python 3.
-- Tkinter library (usually included with Python).
-- `lsblk` command for disk listing.
+1. Download the `dd_gui_amd64_v1.1.deb` package
+2. Install with: `sudo dpkg -i dd_gui_amd64_v1.1.deb`
+3. Resolve dependencies: `sudo apt-get install -f`
 
-## Installation & Execution
+### Dependencies
 
-### 1. Clone the Repository & Run Script
+- Python 3
+- tkinter
+- zenity
+- dd
+- lsblk
+- parted
+- mkfs utilities
+- cryptsetup (for LUKS)
 
+Install dependencies on Debian/Ubuntu with:
 ```bash
-git clone https://github.com/GlitchLinux/dd_py_GUI.git
-cd dd_py_GUI
-bash dd_GUI.sh
+sudo apt install python3-tk zenity coreutils util-linux parted dosfstools ntfs-3g btrfs-progs e2fsprogs cryptsetup
