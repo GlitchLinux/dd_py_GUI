@@ -2,8 +2,6 @@
 
 A graphical interface for disk management operations using dd and other Linux tools.
 
-                                        ![Image](https://github.com/user-attachments/assets/c0ae7282-9d79-4cb2-879d-36a0d0ec8c44)
-
 ## Features
 
 - File to Disk flashing
@@ -21,6 +19,8 @@ A graphical interface for disk management operations using dd and other Linux to
 1. Download the `dd_gui_amd64_v1.1.deb` package
 2. Install with: `sudo dpkg -i dd_gui_amd64_v1.1.deb`
 3. Resolve dependencies: `sudo apt-get install -f`
+ 
+![Image](https://github.com/user-attachments/assets/c0ae7282-9d79-4cb2-879d-36a0d0ec8c44)
 
 ### Dependencies
 
