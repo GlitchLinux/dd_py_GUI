@@ -2,7 +2,7 @@
 
 A graphical interface for disk management operations using dd and other Linux tools.
 
-![Image](https://github.com/user-attachments/assets/163e3db8-4f1b-4deb-afc8-e062c84aa089)
+                                        ![Image](https://github.com/user-attachments/assets/c0ae7282-9d79-4cb2-879d-36a0d0ec8c44)
 
 ## Features
 
