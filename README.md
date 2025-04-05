@@ -2,7 +2,7 @@
 # **DD Py GUI**  
 ### *The Pythonic Disk Manipulation Tool*  
 
-![DD Py GUI Screenshot](https://raw.githubusercontent.com/GlitchLinux/dd_py_GUI/main/etc/dd_gui/DD_GUI.png)  
+![Image](https://github.com/user-attachments/assets/e141eb14-290b-4a3f-a292-0e90691ee6ed)
 
 ---
 
