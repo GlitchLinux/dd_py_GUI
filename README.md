@@ -30,9 +30,8 @@
 ### **Debian/Ubuntu**  
 ```bash
 # Install .deb package (recommended)
-wget https://github.com/GlitchLinux/dd_py_GUI/releases/download/v1.0/dd_gui_amd64_v1.1.deb
-sudo dpkg -i dd_gui_amd64_v1.1.deb
-sudo apt install -f  # Fix dependencies
+wget https://github.com/GlitchLinux/dd_py_GUI/releases/download/dd_gui_amd64_v1.1/dd_gui_amd64_v1.1.deb
+sudo dpkg -i dd_gui_amd64_v1.1.deb && rm dd_gui_amd64_v1.1.deb 
 
 # Or manually
 git clone https://github.com/GlitchLinux/dd_py_GUI.git
