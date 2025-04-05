@@ -1,6 +1,6 @@
 
 # **DD Py GUI**  
-### *The Pythonic Disk Manipulation Tool* | Graphical User Interface for `dd` tasks!
+### *The Pythonic Disk Manipulation Tool* - Graphical User Interface for `dd` tasks!
 
 ---
 
