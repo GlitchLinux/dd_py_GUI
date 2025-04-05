@@ -49,7 +49,7 @@ class DDUtilityApp:
         try:
             icon_path = "/etc/dd_gui/DD_GUI.png"
             if os.path.exists(icon_path):
-                img = tk.PhotoImage(file=icon_path)
+                img = tk.PhotoImage(file=icon_path).subsample(2, 2)  # <-- Only this line changes
                 icon_label = tk.Label(self.main_frame, image=img, bg='#1E1E1E')
                 icon_label.image = img  # Keep reference
                 icon_label.pack(pady=10)
