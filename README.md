@@ -2,6 +2,7 @@
 # **DD Py GUI**  
 ### *The Pythonic Disk Manipulation Tool*  
 
+---
 
 ![Image](https://github.com/user-attachments/assets/e141eb14-290b-4a3f-a292-0e90691ee6ed)
 
