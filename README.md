@@ -117,17 +117,5 @@ Found a bug? Open an [issue](https://github.com/GlitchLinux/dd_py_GUI/issues).
 **Star ⭐ the repo if you find it useful!**  
 
 ---
-
-This version:  
-- Uses **clear emoji headers** for scannability  
-- Includes **terminal commands in code blocks**  
-- Has a **safety warning** in bold  
-- Shows **file locations as a table**  
-- Links to your GitHub issues  
-
-Would you like me to:  
-1. Add a **troubleshooting section**?  
-2. Include **screenshots of each feature**?  
-3. Create a **YouTube demo link** template?  
-
-Let me know how you'd like to customize it further!
+https://glitchlinux.wtf | 2025 
+---
