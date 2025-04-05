@@ -1,10 +1,4 @@
 
-![Image](https://github.com/user-attachments/assets/c0ae7282-9d79-4cb2-879d-36a0d0ec8c44)
-
-Here's a polished **README.md** and **release description** for your GitHub repository (https://github.com/GlitchLinux/dd_py_GUI):
-
----
-
 # **DD Py GUI**  
 ### *The Pythonic Disk Manipulation Tool*  
 
@@ -50,6 +44,9 @@ python3 DD-GUI.py
 sudo apt install python3-tk zenity coreutils lsblk parted \
   dosfstools ntfs-3g e2fsprogs btrfs-progs cryptsetup
 ```
+
+![Image](https://github.com/user-attachments/assets/c0ae7282-9d79-4cb2-879d-36a0d0ec8c44)
+
 
 ---
 
