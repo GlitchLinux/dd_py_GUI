@@ -12,6 +12,10 @@ A graphical interface for disk management operations using dd and other Linux to
 - Disk image creation
 - Progress tracking for all operations
 
+
+![Image](https://github.com/user-attachments/assets/c0ae7282-9d79-4cb2-879d-36a0d0ec8c44)
+
+
 ## Installation
 
 ### From .deb package
@@ -20,8 +24,6 @@ A graphical interface for disk management operations using dd and other Linux to
 2. Install with: `sudo dpkg -i dd_gui_amd64_v1.1.deb`
 3. Resolve dependencies: `sudo apt-get install -f`
  
-![Image](https://github.com/user-attachments/assets/c0ae7282-9d79-4cb2-879d-36a0d0ec8c44)
-
 ### Dependencies
 
 - Python 3
