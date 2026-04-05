@@ -162,7 +162,7 @@ class DDUtilityApp:
         style = ttk.Style()
         style.configure('fancy.Horizontal.TProgressbar',
                         troughcolor='gray20',
-                        background='#535353',  # grey
+                        background='#afff59',  # grey
                         thickness=10)  # Thinner progress bar
 
         self.progress_bar = ttk.Progressbar(self.main_frame, length=280, mode='determinate', style='fancy.Horizontal.TProgressbar')
